@@ -4,9 +4,9 @@ import openai
 from dotenv import load_dotenv
 
 # Regex functions
-from utils.regex import re_whitespace, re_user_prefixes, re_slack_id
+from utils.regex import regex_handler
 # Constants
-from utils.config import MODEL, MAX_TOKENS, TEMPERATURE, THREADS_DICT, TOP_P
+from utils.config import MODEL, MAX_TOKENS, TEMPERATURE, THREADS_DICT, TOP_P, VERBOSE
 from utils.system_prompt import SYSTEM_PROMPT
 # Credentials
 load_dotenv()
@@ -44,20 +44,21 @@ def add_chain_link(thread_id: str, msg: dict, loc: str) -> str:
     """
     # Extract user message from Slack event
     if loc == "apps":
-        msg_txt = re_whitespace(msg["text"])
+        msg_txt = msg["text"]
     elif loc == "mentions":
-        msg_txt = re_whitespace(msg["event"]["text"])
-    
-    # Clean messages with regex functions
-    rgx_msg = re_slack_id(msg_txt)
-    rgx_msg = re_whitespace(rgx_msg)
-    rgx_msg = re_user_prefixes(rgx_msg)
-    
-    # Update memory with user message
-    memory = THREADS_DICT[thread_id]
-    memory.append({"role": "user", "content": rgx_msg})
+        msg_txt = msg["event"]["text"]
     
     try:
+        # Clean user message with regex
+        rgx_msg = regex_handler(msg_txt)
+        
+        # Update memory with user message
+        memory = THREADS_DICT[thread_id]
+        memory.append({"role": "user", "content": rgx_msg})
+        
+        if VERBOSE:
+            print(memory)
+        
         response = client.chat.completions.create(
             model=MODEL,
             messages=memory,
@@ -66,19 +67,20 @@ def add_chain_link(thread_id: str, msg: dict, loc: str) -> str:
             top_p=TOP_P,
             extra_body={"stop_token_ids": [7]}
         )
-        
         bot_msg = response.choices[0].message.content
-        # Clean messages with regex functions
-        rgx_msg = re_slack_id(bot_msg)
-        rgx_msg = re_whitespace(rgx_msg)
-        rgx_msg = re_user_prefixes(rgx_msg)
-        
+        # Clean bot message with regex
+        rgx_msg = regex_handler(bot_msg)
         # Update memory with bot message
         memory.append({"role": "assistant", "content": rgx_msg})
+        
+        THREADS_DICT[thread_id] = memory
+        
+        if VERBOSE:
+            print(memory)
         
         return rgx_msg
     
     except KeyError as e:
         logger.error(f"KeyError for THREADS_DICT: {e}")
         return "Something went wrong - please try again."
-    
+

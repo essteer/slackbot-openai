@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
 
+# Toggle terminal print-outs
+VERBOSE = False
+
 # Master dict to store different discussions
 THREADS_DICT = dict()
 
