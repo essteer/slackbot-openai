@@ -8,7 +8,7 @@ THREADS_DICT = dict()
 
 MODEL = "zero-one-ai/Yi-34B-Chat"
 
-MAX_TOKENS = 500
+MAX_TOKENS = 1500
 TEMPERATURE = 0.1
 TOP_K = 5
 TOP_P = 0.7
