@@ -4,7 +4,7 @@ import openai
 from dotenv import load_dotenv
 
 # Regex functions
-from utils.regex import regex_handler
+from utils.regex_funcs import regex_handler
 # Constants
 from utils.config import MODEL, MAX_TOKENS, TEMPERATURE, THREADS_DICT, TOP_P, VERBOSE
 from utils.system_prompt import SYSTEM_PROMPT
