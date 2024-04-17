@@ -3,16 +3,15 @@ import os, logging
 import openai
 from dotenv import load_dotenv
 
-# Regex functions
-from utils.regex_funcs import regex_handler
-# Constants
 from utils.config import MODEL, MAX_TOKENS, TEMPERATURE, THREADS_DICT, TOP_P, VERBOSE
+from utils.logger import get_logger
+from utils.regex_funcs import regex_handler
 from utils.system_prompt import SYSTEM_PROMPT
 # Credentials
 load_dotenv()
 TOGETHER_API_KEY = os.environ["TOGETHER_API_KEY"]
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # ====================================
 # LLM Model
@@ -81,6 +80,10 @@ def add_chain_link(thread_id: str, msg: dict, loc: str) -> str:
         return rgx_msg
     
     except KeyError as e:
-        logger.error(f"KeyError for THREADS_DICT: {e}")
+        logger.error(f"KeyError: {e}")
+        return "Something went wrong - please try again."
+    
+    except Exception as e:
+        logger.error(f"Error: {e}")
         return "Something went wrong - please try again."
 

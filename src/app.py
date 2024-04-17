@@ -9,6 +9,7 @@ from slack import WebClient
 # LLM functions and objects
 from utils.config import MAP_MODEL_ID, MODEL
 from utils.llm_model import build_chain, add_chain_link, THREADS_DICT
+from utils.logger import get_logger
 from utils.regex_funcs import re_get_mentions
 # Credentials
 load_dotenv()
@@ -17,7 +18,7 @@ SLACK_APP_TOKEN = os.environ["SLACK_APP_TOKEN"]
 
 app = App(token=SLACK_BOT_TOKEN)
 client = WebClient(SLACK_BOT_TOKEN)
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # ====================================
 # Slack event listeners
@@ -40,42 +41,46 @@ def message_handler(message: dict, say: slack_bolt.Say, logger: logging.Logger) 
     logger : logging.Logger
         logging object
     """
-    channel_type = message["channel_type"]
-    if channel_type == "im":
-        # All types of message permitted in Apps channels
-        pass
-    
-    else:
-        if "thread_ts" not in message or "bot_id" in message:
-            # Don't respond to non-mention if bot has not been mentioned before
-            # or message is addressed to another bot
-            return
-        # Mentions are handled by handle_app_mention_events()
-        mentions = re_get_mentions(message["text"])
-        if mentions:
-            return
-    
-    # ID for channel message received from
-    # Set thread timestamp as channel ID 
     try:
-        channel_id = message["thread_ts"]
-    except KeyError:
-        channel_id = message["ts"]
-    
-    # If no chain exists for this channel, create new one
-    if not channel_id in THREADS_DICT:
+        channel_type = message["channel_type"]
         if channel_type == "im":
-            build_chain(channel_id)
+            # All types of message permitted in Apps channels
+            pass
+        
         else:
-            # Don't join threads without mention
-            return
+            if "thread_ts" not in message or "bot_id" in message:
+                # Don't respond to non-mention if bot has not been mentioned before
+                # or message is addressed to another bot
+                return
+            # Mentions are handled by handle_app_mention_events()
+            mentions = re_get_mentions(message["text"])
+            if mentions:
+                return
+        
+        # ID for channel message received from
+        # Set thread timestamp as channel ID 
+        try:
+            channel_id = message["thread_ts"]
+        except KeyError:
+            channel_id = message["ts"]
+        
+        # If no chain exists for this channel, create new one
+        if not channel_id in THREADS_DICT:
+            if channel_type == "im":
+                build_chain(channel_id)
+            else:
+                # Don't join threads without mention
+                return
+        
+        # Store user_message and get bot response
+        bot_message = add_chain_link(channel_id, message, loc="apps")
+        
+        # Send generated response back in a thread
+        thread_timestamp = message["ts"]
+        say(bot_message, thread_ts = thread_timestamp)
     
-    # Store user_message and get bot response
-    bot_message = add_chain_link(channel_id, message, loc="apps")
-    
-    # Send generated response back in a thread
-    thread_timestamp = message["ts"]
-    say(bot_message, thread_ts = thread_timestamp)
+    except Exception as e:
+        logger.error(f"Error: {e}")
 
 
 @app.event(("app_mention"))
@@ -94,30 +99,34 @@ def handle_app_mention_events(body: dict, say: slack_bolt.Say, logger: logging.L
     logger : logging.Logger
         logging object
     """
-    # Ignore mentions that don't include this bot
-    mentions = re_get_mentions(body["event"]["text"])
-    model = MODEL.split("/")[1]
-    bot_id = MAP_MODEL_ID[model]
-    if bot_id not in mentions:
-        return
-    
-    # ID for channel message received from
-    # Set thread timestamp as channel ID
     try:
-        channel_id = body["event"]["thread_ts"]
-    except KeyError:
-        channel_id = body["event"]["ts"]
-    
-    # If no chain exists for this channel, create new one
-    if not channel_id in THREADS_DICT:
-        build_chain(channel_id)
+        # Ignore mentions that don't include this bot
+        mentions = re_get_mentions(body["event"]["text"])
+        model = MODEL.split("/")[1]
+        bot_id = MAP_MODEL_ID[model]
+        if bot_id not in mentions:
+            return
         
-    # Store user_message and get bot response
-    bot_message = add_chain_link(channel_id, body, loc="mentions")
-
-    # Send generated response back in a thread
-    thread_timestamp = body["event"]["ts"]
-    say(bot_message, thread_ts = thread_timestamp)
+        # ID for channel message received from
+        # Set thread timestamp as channel ID
+        try:
+            channel_id = body["event"]["thread_ts"]
+        except KeyError:
+            channel_id = body["event"]["ts"]
+        
+        # If no chain exists for this channel, create new one
+        if not channel_id in THREADS_DICT:
+            build_chain(channel_id)
+            
+        # Store user_message and get bot response
+        bot_message = add_chain_link(channel_id, body, loc="mentions")
+    
+        # Send generated response back in a thread
+        thread_timestamp = body["event"]["ts"]
+        say(bot_message, thread_ts = thread_timestamp)
+    
+    except Exception as e:
+        logger.error(f"Error: {e}")
 
 
 # ====================================
