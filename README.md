@@ -41,10 +41,8 @@ Source: [together.ai](https://docs.together.ai/docs/inference-models)
 ### Installation
 
 ```console
-$ cd slackbot-repos
-$ cd {model-dir}
 $ git clone git@github:jenx-ai/slackbot-openai
-Cloning into 'slackbot'...
+Cloning into 'slackbot-openai'...
 remote: Enumerating objects: 94, done.
 remote: Counting objects: 100% (31/31), done.
 remote: Compressing objects: 100% (28/28), done.
